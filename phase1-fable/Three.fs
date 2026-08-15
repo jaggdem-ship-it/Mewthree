@@ -169,6 +169,7 @@ module Three =
     type Mesh(geometry: obj, material: obj) =
         member _.position: Vector3 = jsNative
         member _.rotation: Vector3 = jsNative
+        member _.scale: Vector3 = jsNative
         member _.castShadow
             with get(): bool = jsNative
             and set(_: bool): unit = jsNative
@@ -176,8 +177,9 @@ module Three =
             with get(): bool = jsNative
             and set(_: bool): unit = jsNative
         member _.add(child: Object3D): unit = jsNative
-        [<Emit("$this.material = $0")>]
-        member _.SetMaterial(material: obj): unit = jsNative
+        member _.material: obj
+            with get(): obj = jsNative
+            and set(_: obj): unit = jsNative
         interface Object3D with
             member _.position = Vector3(0.0, 0.0, 0.0)
             member _.rotation = Vector3(0.0, 0.0, 0.0)

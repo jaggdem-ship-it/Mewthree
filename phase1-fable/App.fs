@@ -59,7 +59,9 @@ module App =
           MoveSpeed: float
           mutable CurrentHP: float
           MaxHP: float
-          mutable Level: int }
+          mutable Level: int
+          mutable VelocityX: float
+          mutable VelocityZ: float }
 
     type UnholyOrb =
         { Mesh: Mesh
@@ -75,6 +77,22 @@ module App =
           Damage: float
           Speed: float }
 
+    type AbilityEffect =
+        { Mesh: Mesh
+          mutable Age: float
+          Lifetime: float
+          Kind: string
+          mutable HasImpacted: bool
+          Target: Phase4.EnemyVisualState option }
+
+    type Particle =
+        { Mesh: Mesh
+          mutable Age: float
+          Lifetime: float
+          VelocityX: float
+          VelocityY: float
+          VelocityZ: float }
+
     type JoystickState =
         { Base: HTMLElement
           Knob: HTMLElement
@@ -85,7 +103,9 @@ module App =
 
     type InputState =
         { mutable Keys: Set<string>
-          Joystick: JoystickState }
+          Joystick: JoystickState
+          mutable LastIntentX: float
+          mutable LastIntentZ: float }
 
     let private clamp minimum maximum value =
         value |> max minimum |> min maximum
@@ -226,18 +246,34 @@ module App =
         let left = input.Keys.Contains "a" || input.Keys.Contains "ArrowLeft"
         let down = input.Keys.Contains "s" || input.Keys.Contains "ArrowDown"
         let up = input.Keys.Contains "w" || input.Keys.Contains "ArrowUp"
-        let horizontal = (if right then 1.0 else 0.0) - (if left then 1.0 else 0.0)
-        let vertical = (if down then 1.0 else 0.0) - (if up then 1.0 else 0.0)
-        let combinedX = horizontal + input.Joystick.X
-        let combinedZ = vertical + input.Joystick.Y
-        let direction = createVector3 combinedX 0.0 combinedZ |> normalizeHorizontal
-        let distance = player.MoveSpeed * deltaSeconds
-        let nextX = player.Position.x + direction.x * distance
-        let nextZ = player.Position.z + direction.z * distance
-        player.Position.set(nextX, player.Position.y, nextZ) |> ignore
+        let keyboardX = (if right then 1.0 else 0.0) - (if left then 1.0 else 0.0)
+        let keyboardZ = (if down then 1.0 else 0.0) - (if up then 1.0 else 0.0)
+        let joystickMagnitude = sqrt (input.Joystick.X * input.Joystick.X + input.Joystick.Y * input.Joystick.Y)
+        let joystickDeadZone = 0.12
+        let joystickScale = if joystickMagnitude <= joystickDeadZone then 0.0 else (joystickMagnitude - joystickDeadZone) / (1.0 - joystickDeadZone)
+        let joystickX = if joystickMagnitude > 0.0001 then input.Joystick.X / joystickMagnitude * joystickScale else 0.0
+        let joystickZ = if joystickMagnitude > 0.0001 then input.Joystick.Y / joystickMagnitude * joystickScale else 0.0
+        let rawX = keyboardX + joystickX
+        let rawZ = keyboardZ + joystickZ
+        let intentMagnitude = sqrt (rawX * rawX + rawZ * rawZ)
+        let intentX, intentZ =
+            if intentMagnitude > 1.0 then rawX / intentMagnitude, rawZ / intentMagnitude else rawX, rawZ
+        input.LastIntentX <- intentX
+        input.LastIntentZ <- intentZ
+        let acceleration = 34.0
+        let friction = 22.0
+        let targetVelocityX = intentX * player.MoveSpeed
+        let targetVelocityZ = intentZ * player.MoveSpeed
+        let response = if intentMagnitude > 0.01 then acceleration else friction
+        let blend = min 1.0 (response * deltaSeconds)
+        player.VelocityX <- player.VelocityX + (targetVelocityX - player.VelocityX) * blend
+        player.VelocityZ <- player.VelocityZ + (targetVelocityZ - player.VelocityZ) * blend
+        player.Position.x <- player.Position.x + player.VelocityX * deltaSeconds
+        player.Position.z <- player.Position.z + player.VelocityZ * deltaSeconds
         playerMesh.position.copy(player.Position) |> ignore
-        if abs direction.x > 0.0001 || abs direction.z > 0.0001 then
-            playerMesh.rotation.y <- atan2 direction.x direction.z
+        let speedSquared = player.VelocityX * player.VelocityX + player.VelocityZ * player.VelocityZ
+        if speedSquared > 0.04 then
+            playerMesh.rotation.y <- atan2 player.VelocityX player.VelocityZ
 
     let private updateCamera deltaSeconds (player: PlayerData) (camera: PerspectiveCamera) =
         let targetX = player.Position.x + 12.0
@@ -342,13 +378,15 @@ module App =
               MoveSpeed = DefaultMoveSpeed
               CurrentHP = DefaultPlayerHP
               MaxHP = DefaultPlayerHP
-              Level = 1 }
+              Level = 1
+              VelocityX = 0.0
+              VelocityZ = 0.0 }
         playerMesh.position.copy(player.Position) |> ignore
         scene.add(playerMesh :> Object3D)
 
         let hud = createHud ()
         let joystick = createJoystick ()
-        let input = { Keys = Set.empty<string>; Joystick = joystick }
+        let input = { Keys = Set.empty<string>; Joystick = joystick; LastIntentX = 0.0; LastIntentZ = 0.0 }
         let clock = Clock()
         let hordeState = HordeEngine.createState ()
         let phase4State = Phase4.createState player.MaxHP
@@ -357,7 +395,11 @@ module App =
         let mutable activeOrbs = Array.empty<UnholyOrb>
         let activeWeapons = ResizeArray<Phase4.WeaponCollider>()
         let activeShadowBolts = ResizeArray<ShadowBolt>()
+        let activeAbilityEffects = ResizeArray<AbilityEffect>()
+        let activeParticles = ResizeArray<Particle>()
         let mutable shadowBoltTimer = 0.0
+        let mutable bloodNovaTimer = 3.8
+        let mutable gravefireTimer = 5.6
         let enemyVisuals = Dictionary<int, Phase4.EnemyVisualState>()
         let mutable orbTimer = OrbSpawnInterval
         let mutable runScore = 0
@@ -420,7 +462,112 @@ module App =
                     disposeCombatMesh bolt.Mesh
                     activeShadowBolts.RemoveAt(index)
                 index <- index - 1
+        let createAbilityMesh geometry color roughness metalness =
+            let material = createStandardMaterial (U2.Case1 color) roughness metalness
+            let mesh = Mesh(geometry, material :> obj)
+            mesh.castShadow <- false
+            mesh.receiveShadow <- false
+            mesh
+        let spawnParticleBurst (scene: Scene) (particles: ResizeArray<Particle>) (origin: Vector3) color count =
+            let available = max 0 (48 - particles.Count)
+            let burstCount = min count available
+            for index in 0 .. burstCount - 1 do
+                let angle = float index * (Math.PI * 2.0 / float (max 1 burstCount))
+                let speed = 2.0 + float (index % 3) * 0.8
+                let mesh = createAbilityMesh (SphereGeometry(0.08, 6, 5) :> obj) color 0.25 0.55
+                mesh.position.set(origin.x, origin.y + 0.25, origin.z) |> ignore
+                scene.add(mesh :> Object3D)
+                particles.Add
+                    { Mesh = mesh
+                      Age = 0.0
+                      Lifetime = 0.42 + float (index % 3) * 0.08
+                      VelocityX = cos angle * speed
+                      VelocityY = 1.2 + float (index % 2) * 0.6
+                      VelocityZ = sin angle * speed }
+        let spawnBloodNova (scene: Scene) (effects: ResizeArray<AbilityEffect>) (player: PlayerData) =
+            if effects.Count < 12 then
+                let mesh = createAbilityMesh (SphereGeometry(0.38, 16, 10) :> obj) 0xB92E5B 0.18 0.6
+                mesh.position.copy(player.Position) |> ignore
+                scene.add(mesh :> Object3D)
+                effects.Add
+                    { Mesh = mesh
+                      Age = 0.0
+                      Lifetime = 0.72
+                      Kind = "blood-nova"
+                      HasImpacted = false
+                      Target = None }
+        let spawnGravefire (scene: Scene) (effects: ResizeArray<AbilityEffect>) (target: Phase4.EnemyVisualState) =
+            if effects.Count < 12 then
+                let mesh = createAbilityMesh (BoxGeometry(0.42, 2.8, 0.42) :> obj) 0xF08A42 0.22 0.48
+                mesh.position.set(target.Enemy.Mesh.position.x, target.Enemy.Mesh.position.y + 7.0, target.Enemy.Mesh.position.z) |> ignore
+                scene.add(mesh :> Object3D)
+                effects.Add
+                    { Mesh = mesh
+                      Age = 0.0
+                      Lifetime = 0.78
+                      Kind = "gravefire"
+                      HasImpacted = false
+                      Target = Some target }
 
+        let updateParticles deltaSeconds (particles: ResizeArray<Particle>) =
+            let mutable index = particles.Count - 1
+            while index >= 0 do
+                let particle = particles[index]
+                particle.Age <- particle.Age + deltaSeconds
+                if particle.Age >= particle.Lifetime then
+                    scene.remove(particle.Mesh :> Object3D)
+                    disposeCombatMesh particle.Mesh
+                    particles.RemoveAt(index)
+                else
+                    particle.Mesh.position.x <- particle.Mesh.position.x + particle.VelocityX * deltaSeconds
+                    particle.Mesh.position.y <- particle.Mesh.position.y + particle.VelocityY * deltaSeconds
+                    particle.Mesh.position.z <- particle.Mesh.position.z + particle.VelocityZ * deltaSeconds
+                    particle.Mesh.scale.set(1.0, 1.0, 1.0) |> ignore
+                index <- index - 1
+        let updateAbilityEffects deltaSeconds (player: PlayerData) (visuals: Phase4.EnemyVisualState array) (effects: ResizeArray<AbilityEffect>) (particles: ResizeArray<Particle>) =
+            let mutable index = effects.Count - 1
+            while index >= 0 do
+                let effect = effects[index]
+                effect.Age <- effect.Age + deltaSeconds
+                match effect.Kind, effect.Target with
+                | "blood-nova", _ ->
+                    let progress = min 1.0 (effect.Age / effect.Lifetime)
+                    let radius = 0.45 + progress * 5.8
+                    effect.Mesh.position.copy(player.Position) |> ignore
+                    effect.Mesh.scale.set(radius, 0.18 + progress * 0.3, radius) |> ignore
+                    effect.Mesh.rotation.y <- effect.Mesh.rotation.y + deltaSeconds * 5.0
+                    if not effect.HasImpacted && effect.Age >= 0.22 then
+                        effect.HasImpacted <- true
+                        visuals
+                        |> Array.iter (fun enemy ->
+                            let dx = enemy.Enemy.Mesh.position.x - player.Position.x
+                            let dz = enemy.Enemy.Mesh.position.z - player.Position.z
+                            if enemy.Enemy.Health > 0.0 && dx * dx + dz * dz <= radius * radius then
+                                Phase4.hitEnemy 34.0 enemy)
+                        spawnParticleBurst scene particles player.Position 0xE05A79 12
+                | "gravefire", Some target ->
+                    let progress = min 1.0 (effect.Age / 0.42)
+                    effect.Mesh.position.x <- target.Enemy.Mesh.position.x
+                    effect.Mesh.position.z <- target.Enemy.Mesh.position.z
+                    effect.Mesh.position.y <- target.Enemy.Mesh.position.y + 7.0 * (1.0 - progress)
+                    effect.Mesh.rotation.y <- effect.Mesh.rotation.y + deltaSeconds * 8.0
+                    effect.Mesh.scale.set(1.0 + progress * 1.4, 1.0, 1.0 + progress * 1.4) |> ignore
+                    if not effect.HasImpacted && effect.Age >= 0.42 then
+                        effect.HasImpacted <- true
+                        visuals
+                        |> Array.iter (fun enemy ->
+                            let dx = enemy.Enemy.Mesh.position.x - effect.Mesh.position.x
+                            let dz = enemy.Enemy.Mesh.position.z - effect.Mesh.position.z
+                            if enemy.Enemy.Health > 0.0 && dx * dx + dz * dz <= 3.2 * 3.2 then
+                                Phase4.hitEnemy 28.0 enemy)
+                        spawnParticleBurst scene particles effect.Mesh.position 0xFFB35C 10
+                | _ -> ()
+                if effect.Age >= effect.Lifetime then
+                    scene.remove(effect.Mesh :> Object3D)
+                    disposeCombatMesh effect.Mesh
+                    effects.RemoveAt(index)
+                index <- index - 1
+            updateParticles deltaSeconds particles
         let pauseLoop () =
             loopControl.Paused <- true
             match loopControl.AnimationHandle with
@@ -442,6 +589,16 @@ module App =
                 scene.remove(bolt.Mesh :> Object3D)
                 disposeCombatMesh bolt.Mesh)
             activeShadowBolts.Clear()
+            activeAbilityEffects
+            |> Seq.iter (fun effect ->
+                scene.remove(effect.Mesh :> Object3D)
+                disposeCombatMesh effect.Mesh)
+            activeAbilityEffects.Clear()
+            activeParticles
+            |> Seq.iter (fun particle ->
+                scene.remove(particle.Mesh :> Object3D)
+                disposeCombatMesh particle.Mesh)
+            activeParticles.Clear()
             removeUnholyOrbs scene activeOrbs
             activeOrbs <- Array.empty
             activeWeapons.Clear()
@@ -453,8 +610,14 @@ module App =
             runScore <- 0
             orbTimer <- OrbSpawnInterval
             shadowBoltTimer <- 0.0
+            bloodNovaTimer <- 3.8
+            gravefireTimer <- 5.6
             player.CurrentHP <- player.MaxHP
             player.Position.set(0.0, 0.72, 0.0) |> ignore
+            player.VelocityX <- 0.0
+            player.VelocityZ <- 0.0
+            input.LastIntentX <- 0.0
+            input.LastIntentZ <- 0.0
             playerMesh.position.copy(player.Position) |> ignore
             spawnOrbs ()
             updateHud player phase4State runScore
@@ -516,6 +679,18 @@ module App =
                 runScore <- runScore + max 0 ((enemyCountBefore - hordeState.Enemies.Count) * 10)
 
                 let visuals = activeEnemyVisuals ()
+                bloodNovaTimer <- bloodNovaTimer - deltaSeconds
+                if bloodNovaTimer <= 0.0 then
+                    spawnBloodNova scene activeAbilityEffects player
+                    bloodNovaTimer <- 7.2
+                gravefireTimer <- gravefireTimer - deltaSeconds
+                if gravefireTimer <= 0.0 then
+                    visuals
+                    |> Array.filter (fun target -> target.Enemy.Health > 0.0)
+                    |> Array.tryFind (fun _ -> true)
+                    |> Option.iter (spawnGravefire scene activeAbilityEffects)
+                    gravefireTimer <- 9.5
+                updateAbilityEffects deltaSeconds player visuals activeAbilityEffects activeParticles
                 activeWeapons
                 |> Seq.iter (fun weapon -> weapon.Damage <- if Phase4.bloodAuraActive phase4State then OrbContactDamage * 1.5 else OrbContactDamage)
                 Phase4.tick deltaSeconds scene playerMesh 0.72 activeWeapons visuals phase4State loopControl levelUpCallbacks
