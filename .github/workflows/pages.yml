@@ -1,0 +1,68 @@
+name: Build and deploy Fable game to GitHub Pages
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.x'
+
+      - name: Restore local Fable tool
+        working-directory: phase1-fable
+        run: dotnet tool restore
+
+      - name: Restore project packages
+        run: dotnet restore phase1-fable/GameApp.fsproj
+
+      - name: Compile Fable modules
+        run: dotnet fable phase1-fable/GameApp.fsproj --outDir phase1-fable/build
+
+      - name: Assemble static Pages site
+        run: |
+          rm -rf _site
+          mkdir -p _site
+          cp phase1-fable/index.html _site/index.html
+          cp -R phase1-fable/build/. _site/
+          touch _site/.nojekyll
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

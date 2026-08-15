@@ -119,3 +119,4 @@ client/public/__manus__/version.json
 # Local delivery and task artifacts
 phase1-fable.zip
 todo.md
+_site/
