@@ -94,7 +94,7 @@ module HordeEngine =
         mesh.receiveShadow <- true
         mesh
 
-    [<Emit("$0.geometry.dispose(); $0.material.dispose(); $0.removeFromParent();")>]
+    [<Emit("$0.geometry.dispose(); $0.material.dispose();")>]
     let private disposeMesh (mesh: Mesh) : unit = jsNative
 
     let private spawnEnemyAt (scene: Scene) (state: HordeState) (playerMesh: Mesh) angle radius =
@@ -154,7 +154,7 @@ module HordeEngine =
     let cleanupDead (scene: Scene) (state: HordeState) =
         cleanupDeadEnemies scene state
 
-    [<Emit("$0.geometry.dispose(); $0.material.dispose(); $0.removeFromParent();")>]
+    [<Emit("$0.geometry.dispose(); $0.material.dispose();")>]
     let private disposeResetMesh (mesh: Mesh) : unit = jsNative
 
     let reset (scene: Scene) (state: HordeState) =

@@ -99,8 +99,8 @@ module Phase4 =
     [<Emit("$0.dispose();")>]
     let private disposeMaterial (material: obj) : unit = jsNative
 
-    let private setMeshMaterial (mesh: Mesh) (material: obj) : unit =
-        mesh.SetMaterial material
+    [<Emit("$0.material = $1")>]
+    let private setMeshMaterial (mesh: Mesh) (material: obj) : unit = jsNative
 
     let private enemyRadius enemyType =
         match enemyType with
@@ -144,7 +144,7 @@ module Phase4 =
         mesh.receiveShadow <- true
         mesh
 
-    [<Emit("$0.geometry.dispose(); $0.material.dispose(); $0.removeFromParent();")>]
+    [<Emit("$0.geometry.dispose(); $0.material.dispose();")>]
     let private disposeMesh (mesh: Mesh) : unit = jsNative
 
     let private distanceSquaredOnPlane (left: Vector3) (right: Vector3) =
@@ -296,7 +296,7 @@ module Phase4 =
             state.Overlay <- Some (injectLevelUpOverlay callbacks)
             callbacks.PauseLoop()
 
-    [<Emit("$0.geometry.dispose(); $0.material.dispose(); $0.removeFromParent();")>]
+    [<Emit("$0.geometry.dispose(); $0.material.dispose();")>]
     let private disposeResetShard (mesh: Mesh) : unit = jsNative
 
     let resetState (scene: Scene) (state: Phase4State) =

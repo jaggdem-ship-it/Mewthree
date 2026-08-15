@@ -140,7 +140,7 @@ module App =
         joystick.Y <- clampedY / maxRadius
         joystick.Knob.setAttribute("style", sprintf "position:absolute;left:41px;top:41px;width:46px;height:46px;border:1px solid rgba(240,213,163,.9);border-radius:50%%;background:radial-gradient(circle at 35%% 30%%,#d5a9b4,#64152f 60%%,#1b0b12);box-shadow:0 3px 12px rgba(0,0,0,.75);pointer-events:none;transform:translate(%fpx,%fpx);" (clampedX * 0.62) (clampedY * 0.62))
 
-    [<Emit("$0.geometry.dispose(); $0.material.dispose(); $0.removeFromParent();")>]
+    [<Emit("$0.geometry.dispose(); $0.material.dispose();")>]
     let private disposeCombatMesh (mesh: Mesh) : unit = jsNative
 
     let private createShadowBolt (scene: Scene) (player: PlayerData) (target: Phase4.EnemyVisualState) damage =
