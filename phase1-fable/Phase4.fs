@@ -32,7 +32,7 @@ module Phase4 =
 
     type WeaponCollider =
         { Mesh: Mesh
-          Damage: float
+          mutable Damage: float
           Radius: float
           mutable Cooldown: float }
 

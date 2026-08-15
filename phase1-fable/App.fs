@@ -2,10 +2,12 @@ namespace DarkFantasySurvivor
 
 module App =
     open System
+    open System.Collections.Generic
     open Browser.Dom
     open Browser.Types
     open Fable.Core
     open Three
+    open HordeEngine
 
     [<Literal>]
     let private Black = 0x000000
@@ -55,14 +57,9 @@ module App =
     type PlayerData =
         { Position: Vector3
           MoveSpeed: float
-          CurrentHP: float
-          MaxHP: float
-          Level: int }
-
-    type Damageable =
-        { Mesh: Mesh
           mutable CurrentHP: float
-          MaxHP: float }
+          MaxHP: float
+          mutable Level: int }
 
     type UnholyOrb =
         { Mesh: Mesh
@@ -78,9 +75,6 @@ module App =
     let private clamp minimum maximum value =
         value |> max minimum |> min maximum
 
-    let private lengthSquared (value: Vector3) =
-        value.x * value.x + value.y * value.y + value.z * value.z
-
     let private normalizeHorizontal (value: Vector3) =
         let horizontalLength = sqrt (value.x * value.x + value.z * value.z)
         if horizontalLength > 0.0001 then
@@ -92,27 +86,6 @@ module App =
         match document.getElementById("game-view") with
         | null -> failwith "The required #game-view canvas was not found."
         | element -> element :?> HTMLCanvasElement
-
-    let private isKeyDown (input: InputState) key =
-        input.Keys.Contains key
-
-    let private keyboardDirection (input: InputState) =
-        let right = isKeyDown input "d" || isKeyDown input "ArrowRight"
-        let left = isKeyDown input "a" || isKeyDown input "ArrowLeft"
-        let down = isKeyDown input "s" || isKeyDown input "ArrowDown"
-        let up = isKeyDown input "w" || isKeyDown input "ArrowUp"
-        let horizontal = (if right then 1.0 else 0.0) - (if left then 1.0 else 0.0)
-        let vertical = (if down then 1.0 else 0.0) - (if up then 1.0 else 0.0)
-        createVector3 horizontal 0.0 vertical |> normalizeHorizontal
-
-    let private movePlayer deltaSeconds (input: InputState) (player: PlayerData) (playerMesh: Mesh) =
-        let direction = keyboardDirection input
-        let distance = player.MoveSpeed * deltaSeconds
-        let nextX = player.Position.x + direction.x * distance
-        let nextZ = player.Position.z + direction.z * distance
-        player.Position.set(nextX, player.Position.y, nextZ) |> ignore
-        playerMesh.position.copy(player.Position) |> ignore
-        playerMesh.rotation.y <- atan2 direction.x direction.z
 
     let private createPlayerMesh () =
         let geometry = SphereGeometry(0.72, 16, 12)
@@ -137,18 +110,18 @@ module App =
 
     let private spawnUnholyOrbs (scene: Scene) (player: PlayerData) =
         let phases = Array.init OrbCount (fun index -> float index * (Math.PI * 2.0 / float OrbCount))
-        let orbs = phases |> Array.map createUnholyOrb
-        orbs
+        phases
+        |> Array.map createUnholyOrb
         |> Array.iter (fun orb ->
             orb.Mesh.position.set(player.Position.x, player.Position.y + 0.55, player.Position.z) |> ignore
             scene.add(orb.Mesh :> Object3D))
-        orbs
+        phases |> Array.map createUnholyOrb
 
     let private removeUnholyOrbs (scene: Scene) (orbs: UnholyOrb array) =
         orbs |> Array.iter (fun orb -> scene.remove(orb.Mesh :> Object3D))
 
-    let private updateUnholyOrb (deltaSeconds: float) (elapsedSeconds: float) (player: PlayerData) (orb: UnholyOrb) =
-        let angle = elapsedSeconds * orb.AngularSpeed + orb.OrbitPhase
+    let private updateUnholyOrb multiplier deltaSeconds elapsedSeconds (player: PlayerData) (orb: UnholyOrb) =
+        let angle = elapsedSeconds * orb.AngularSpeed * multiplier + orb.OrbitPhase
         let orbitX = player.Position.x + cos angle * orb.OrbitRadius
         let orbitZ = player.Position.z + sin angle * orb.OrbitRadius
         orb.Mesh.position.set(orbitX, player.Position.y + 0.55, orbitZ) |> ignore
@@ -156,19 +129,21 @@ module App =
         orb.Mesh.rotation.y <- orb.Mesh.rotation.y + deltaSeconds * 4.5
         orb
 
-    let private applyContactDamage (orb: UnholyOrb) (damageables: ResizeArray<Damageable>) =
-        damageables
-        |> Seq.iter (fun target ->
-            let deltaX = target.Mesh.position.x - orb.Mesh.position.x
-            let deltaZ = target.Mesh.position.z - orb.Mesh.position.z
-            let distanceSquared = deltaX * deltaX + deltaZ * deltaZ
-            let contactDistance = orb.ContactRadius + 0.75
-            if distanceSquared <= contactDistance * contactDistance then
-                target.CurrentHP <- max 0.0 (target.CurrentHP - orb.ContactDamage))
-
-    let RegisterDamageable (target: Damageable) (damageables: ResizeArray<Damageable>) =
-        if not (damageables.Contains target) then
-            damageables.Add target
+    let private movePlayer deltaSeconds (input: InputState) (player: PlayerData) (playerMesh: Mesh) =
+        let right = input.Keys.Contains "d" || input.Keys.Contains "ArrowRight"
+        let left = input.Keys.Contains "a" || input.Keys.Contains "ArrowLeft"
+        let down = input.Keys.Contains "s" || input.Keys.Contains "ArrowDown"
+        let up = input.Keys.Contains "w" || input.Keys.Contains "ArrowUp"
+        let horizontal = (if right then 1.0 else 0.0) - (if left then 1.0 else 0.0)
+        let vertical = (if down then 1.0 else 0.0) - (if up then 1.0 else 0.0)
+        let direction = createVector3 horizontal 0.0 vertical |> normalizeHorizontal
+        let distance = player.MoveSpeed * deltaSeconds
+        let nextX = player.Position.x + direction.x * distance
+        let nextZ = player.Position.z + direction.z * distance
+        player.Position.set(nextX, player.Position.y, nextZ) |> ignore
+        playerMesh.position.copy(player.Position) |> ignore
+        if abs direction.x > 0.0001 || abs direction.z > 0.0001 then
+            playerMesh.rotation.y <- atan2 direction.x direction.z
 
     let private updateCamera deltaSeconds (player: PlayerData) (camera: PerspectiveCamera) =
         let targetX = player.Position.x + 12.0
@@ -189,6 +164,41 @@ module App =
         renderer.setSize(nextWidth, nextHeight, true)
         renderer.setPixelRatio(min 2.0 window.devicePixelRatio)
 
+    let private createHud () =
+        let hud = document.createElement("section")
+        hud.id <- "game-hud"
+        hud.innerHTML <-
+            "<div class=\"hud-brand\">THE ASHEN VIGIL <span>WRAITH OF THE BELLS</span></div>" +
+            "<div class=\"hud-stats\">" +
+            "<div class=\"hud-line\"><span>VITALITY</span><strong id=\"hud-hp\">100 / 100</strong></div>" +
+            "<div class=\"hud-meter\"><i id=\"hud-hp-fill\"></i></div>" +
+            "<div class=\"hud-line\"><span>SOUL SHARDS</span><strong id=\"hud-xp\">0 / 8</strong></div>" +
+            "<div class=\"hud-meter xp\"><i id=\"hud-xp-fill\"></i></div>" +
+            "<div class=\"hud-line compact\"><span>LEVEL <strong id=\"hud-level\">1</strong></span><span>SCORE <strong id=\"hud-score\">0</strong></span></div>" +
+            "</div>" +
+            "<div class=\"hud-help\">WASD / ARROWS TO MOVE<br/>THE ORBS HUNT FOR YOU</div>"
+        hud.setAttribute("style", "position:fixed;inset:0;z-index:20;pointer-events:none;color:#e8dec9;font-family:Georgia,serif;text-shadow:0 2px 10px #000;")
+        document.body.appendChild(hud) |> ignore
+        hud
+
+    let private setHudText id value =
+        match document.getElementById(id) with
+        | null -> ()
+        | element -> element.textContent <- value
+
+    let private setHudWidth id value =
+        match document.getElementById(id) with
+        | null -> ()
+        | element -> element.setAttribute("style", sprintf "width:%s%%" value)
+
+    let private updateHud (player: PlayerData) (phase4State: Phase4.Phase4State) score =
+        setHudText "hud-hp" (sprintf "%d / %d" (int player.CurrentHP) (int player.MaxHP))
+        setHudText "hud-xp" (sprintf "%d / %d" phase4State.Experience phase4State.ExperienceThreshold)
+        setHudText "hud-level" (string phase4State.Level)
+        setHudText "hud-score" (string score)
+        setHudWidth "hud-hp-fill" (string (clamp 0.0 100.0 (player.CurrentHP / player.MaxHP * 100.0)))
+        setHudWidth "hud-xp-fill" (string (clamp 0.0 100.0 (float phase4State.Experience / float phase4State.ExperienceThreshold * 100.0)))
+
     let private initializeScene () =
         let view = canvas ()
         let width = float window.innerWidth
@@ -201,8 +211,7 @@ module App =
 
         let camera = PerspectiveCamera(58.0, aspect, 0.1, 2000.0)
         camera.position.set(12.0, 16.0, 12.0) |> ignore
-        let initialLookTarget = createVector3 0.0 0.0 0.0
-        camera.lookAt(initialLookTarget)
+        camera.lookAt(createVector3 0.0 0.0 0.0)
 
         let renderer = createRenderer (box view)
         renderer.setPixelRatio(min 2.0 window.devicePixelRatio)
@@ -243,46 +252,157 @@ module App =
         playerMesh.position.copy(player.Position) |> ignore
         scene.add(playerMesh :> Object3D)
 
-        let damageables = ResizeArray<Damageable>()
-        let mutable activeOrbs = Array.empty<UnholyOrb>
-        let mutable orbTimer = OrbSpawnInterval
+        let hud = createHud ()
         let input = { Keys = Set.empty<string> }
+        let clock = Clock()
+        let hordeState = HordeEngine.createState ()
+        let phase4State = Phase4.createState player.MaxHP
+        let cloudState = Phase5.createCloudScoreState ()
+        let loopControl : Phase4.GameLoopControl = { AnimationHandle = None; Paused = true }
+        let mutable activeOrbs = Array.empty<UnholyOrb>
+        let activeWeapons = ResizeArray<Phase4.WeaponCollider>()
+        let enemyVisuals = Dictionary<int, Phase4.EnemyVisualState>()
+        let mutable orbTimer = OrbSpawnInterval
+        let mutable runScore = 0
+        let mutable hasStarted = false
+        let mutable gameOverShown = false
+        let mutable renderFrame : float -> unit = ignore
+
+        let syncWeapons () =
+            activeWeapons.Clear()
+            activeOrbs
+            |> Array.iter (fun orb ->
+                let damage = if Phase4.bloodAuraActive phase4State then orb.ContactDamage * 1.5 else orb.ContactDamage
+                activeWeapons.Add(Phase4.createWeaponCollider (orb.Mesh) damage orb.ContactRadius))
+
+        let spawnOrbs () =
+            removeUnholyOrbs scene activeOrbs
+            activeOrbs <-
+                let phases = Array.init OrbCount (fun index -> float index * (Math.PI * 2.0 / float OrbCount))
+                phases |> Array.map createUnholyOrb
+            activeOrbs
+            |> Array.iter (fun orb ->
+                orb.Mesh.position.set(player.Position.x, player.Position.y + 0.55, player.Position.z) |> ignore
+                scene.add(orb.Mesh :> Object3D))
+            syncWeapons ()
+
+        let enemyVisualState enemy =
+            if enemyVisuals.ContainsKey enemy.Id then
+                enemyVisuals[enemy.Id]
+            else
+                let color =
+                    match enemy.EnemyType with
+                    | SkeletonWarrior -> 0xC8C1C7
+                    | BloodFiend -> 0x6E1025
+                let baseMaterial = createStandardMaterial (U2.Case1 color) 0.78 0.22 :> obj
+                let flashMaterial = createStandardMaterial (U2.Case1 0xFF2438) 0.42 0.36 :> obj
+                let created = Phase4.createEnemyVisualState enemy baseMaterial flashMaterial
+                enemyVisuals.Add(enemy.Id, created)
+                created
+
+        let activeEnemyVisuals () =
+            HordeEngine.activeEnemies hordeState |> Array.map enemyVisualState
+
+        let pauseLoop () =
+            loopControl.Paused <- true
+            match loopControl.AnimationHandle with
+            | Some handle ->
+                window.cancelAnimationFrame(handle)
+                loopControl.AnimationHandle <- None
+            | None -> ()
+
+        let resumeLoop () =
+            if hasStarted && not gameOverShown then
+                loopControl.Paused <- false
+                loopControl.AnimationHandle <- Some (window.requestAnimationFrame(renderFrame))
+
+        let resetRun () =
+            phase4State.PlayerHP <- player.MaxHP
+            phase4State.Experience <- 0
+            phase4State.ExperienceThreshold <- 8
+            phase4State.Level <- 1
+            phase4State.OrbSpeedMultiplier <- 1.0
+            phase4State.BloodAuraActive <- false
+            phase4State.Paused <- false
+            loopControl.Paused <- false
+            gameOverShown <- false
+            runScore <- 0
+            orbTimer <- OrbSpawnInterval
+            player.CurrentHP <- player.MaxHP
+            player.Position.set(0.0, 0.72, 0.0) |> ignore
+            playerMesh.position.copy(player.Position) |> ignore
+            spawnOrbs ()
+            updateHud player phase4State runScore
+            loopControl.AnimationHandle <- Some (window.requestAnimationFrame(renderFrame))
+
+        let gameOverCallbacks : Phase5.GameOverCallbacks =
+            { PauseLoop = pauseLoop
+              RestartRun = resetRun
+              RenderScore = fun score -> setHudText "hud-score" (string score) }
+
+        let rec levelUpCallbacks : Phase4.LevelUpCallbacks =
+            { PauseLoop = pauseLoop
+              ResumeLoop = resumeLoop
+              ApplyChoice = fun choice -> Phase4.selectChoice phase4State levelUpCallbacks choice }
+
+        let showGameOverIfNeeded () =
+            if not gameOverShown && phase4State.PlayerHP <= 0.0 then
+                gameOverShown <- true
+                Phase5.showGameOver cloudState gameOverCallbacks runScore |> ignore
+
+        let rec startRun () =
+            if not hasStarted then
+                hasStarted <- true
+                resetRun ()
+
+        let startMenuCallbacks = { Phase5.StartMenuCallbacks.StartRun = startRun }
+        Phase5.showStartMenu cloudState startMenuCallbacks |> ignore
 
         let keyDown (event: KeyboardEvent) =
-            let key = event.key
-            input.Keys <- input.Keys.Add key
+            input.Keys <- input.Keys.Add event.key
 
         let keyUp (event: KeyboardEvent) =
-            let key = event.key
-            input.Keys <- input.Keys.Remove key
+            input.Keys <- input.Keys.Remove event.key
 
-        let clock = Clock()
+        renderFrame <- fun _timestamp ->
+            if not loopControl.Paused && not gameOverShown then
+                let deltaSeconds = clock.getDelta() |> min 0.05
+                let elapsedSeconds = clock.getElapsedTime()
+                movePlayer deltaSeconds input player playerMesh
+                updateCamera deltaSeconds player camera
 
-        let rec renderFrame (_timestamp: float) =
-            let deltaSeconds = clock.getDelta() |> min 0.05
-            let elapsedSeconds = clock.getElapsedTime()
-            let spawnResult =
                 orbTimer <- orbTimer - deltaSeconds
                 if orbTimer <= 0.0 then
-                    removeUnholyOrbs scene activeOrbs
-                    activeOrbs <- spawnUnholyOrbs scene player
+                    spawnOrbs ()
                     orbTimer <- OrbSpawnInterval
-                ()
-            movePlayer deltaSeconds input player playerMesh
-            updateCamera deltaSeconds player camera
-            activeOrbs
-            |> Array.map (updateUnholyOrb deltaSeconds elapsedSeconds player)
-            |> Array.iter (fun orb -> applyContactDamage orb damageables)
-            renderer.render(scene, camera)
-            window.requestAnimationFrame(renderFrame) |> ignore
+
+                activeOrbs
+                |> Array.iter (fun orb ->
+                    updateUnholyOrb (Phase4.orbSpeedMultiplier phase4State) deltaSeconds elapsedSeconds player orb |> ignore)
+
+                let enemyCountBefore = hordeState.Enemies.Count
+                HordeEngine.tick deltaSeconds scene playerMesh hordeState
+                runScore <- runScore + max 0 ((enemyCountBefore - hordeState.Enemies.Count) * 10)
+
+                let visuals = activeEnemyVisuals ()
+                activeWeapons
+                |> Seq.iter (fun weapon -> weapon.Damage <- if Phase4.bloodAuraActive phase4State then OrbContactDamage * 1.5 else OrbContactDamage)
+                Phase4.tick deltaSeconds scene playerMesh 0.72 activeWeapons visuals phase4State loopControl levelUpCallbacks
+                player.CurrentHP <- phase4State.PlayerHP
+                player.Level <- phase4State.Level
+                updateHud player phase4State runScore
+                showGameOverIfNeeded ()
+                renderer.render(scene, camera)
+
+                if not loopControl.Paused && not gameOverShown then
+                    loopControl.AnimationHandle <- Some (window.requestAnimationFrame(renderFrame))
 
         window.addEventListener("keydown", fun event -> keyDown (event :?> KeyboardEvent))
         window.addEventListener("keyup", fun event -> keyUp (event :?> KeyboardEvent))
         window.addEventListener("resize", fun _ -> resizeScene camera renderer ())
         clock.start()
-        activeOrbs <- spawnUnholyOrbs scene player
-        window.requestAnimationFrame(renderFrame) |> ignore
-        scene, camera, renderer
+        renderer.render(scene, camera)
+        scene, camera, renderer, hud
 
     [<EntryPoint>]
     let main _argv =
