@@ -6,6 +6,9 @@ on:
       - main
   workflow_dispatch:
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 permissions:
   contents: read
   pages: write
@@ -35,7 +38,8 @@ jobs:
         run: dotnet restore phase1-fable/GameApp.fsproj
 
       - name: Compile Fable modules
-        run: dotnet fable phase1-fable/GameApp.fsproj --outDir phase1-fable/build
+        working-directory: phase1-fable
+        run: dotnet fable GameApp.fsproj --outDir build
 
       - name: Assemble static Pages site
         run: |

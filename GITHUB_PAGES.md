@@ -1,6 +1,6 @@
 # GitHub Pages deployment for the Fable game
 
-This repository now includes `.github/workflows/pages.yml`. Every push to `main`, or a manual workflow dispatch, restores the local Fable tool, restores the .NET project, compiles `phase1-fable/GameApp.fsproj`, assembles a static `_site` directory, and deploys it through the official GitHub Pages artifact workflow.
+This repository now includes `.github/workflows/pages.yml`. Every push to `main`, or a manual workflow dispatch, restores the local Fable tool, restores the .NET project, compiles `phase1-fable/GameApp.fsproj`, assembles a static `_site` directory, and deploys it through the official GitHub Pages artifact workflow. The workflow sets `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true` so JavaScript-based Actions run on Node 24 instead of deprecated Node 20.
 
 ## Repository configuration
 
@@ -12,7 +12,7 @@ The workflow uses .NET 10 because the repository's Fable 5.13.0 tool payload tar
 dotnet fable phase1-fable/GameApp.fsproj --outDir phase1-fable/build
 ```
 
-The build copies `phase1-fable/index.html` to the artifact root and copies the complete Fable output, including `fable_modules`, beside it. The HTML entrypoint therefore loads `./App.js`, not `./dist/App.js`.
+The build runs from `phase1-fable`, where the local tool manifest is discoverable, and copies `phase1-fable/index.html` to the artifact root along with the complete Fable output, including `fable_modules`. The HTML entrypoint therefore loads `./App.js`, not `./dist/App.js`.
 
 ## Activation
 
