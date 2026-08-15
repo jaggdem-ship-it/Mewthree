@@ -144,6 +144,11 @@ module Phase4 =
         enemy.HitFlashSeconds <- 0.11
         setMeshMaterial enemy.Enemy.Mesh enemy.FlashMaterial
 
+    let hitEnemy amount (enemy: EnemyVisualState) =
+        if enemy.Enemy.Health > 0.0 then
+            HordeEngine.damageEnemy amount enemy.Enemy
+            triggerEnemyHitFlash enemy
+
     let private updateEnemyFlash deltaSeconds (enemy: EnemyVisualState) =
         if enemy.HitFlashSeconds > 0.0 then
             enemy.HitFlashSeconds <- max 0.0 (enemy.HitFlashSeconds - deltaSeconds)
@@ -274,6 +279,25 @@ module Phase4 =
             state.Paused <- true
             state.Overlay <- Some (injectLevelUpOverlay callbacks)
             callbacks.PauseLoop()
+
+    [<Emit("$0.geometry.dispose(); $0.material.dispose(); $0.removeFromParent();")>]
+    let private disposeResetShard (mesh: Mesh) : unit = jsNative
+
+    let resetState (scene: Scene) (state: Phase4State) =
+        state.SoulShards
+        |> Seq.iter (fun shard ->
+            scene.remove(shard.Mesh :> Object3D)
+            disposeResetShard shard.Mesh)
+        state.SoulShards.Clear()
+        state.Overlay <- None
+        state.Paused <- false
+        state.PlayerHP <- state.PlayerMaxHP
+        state.Experience <- 0
+        state.ExperienceThreshold <- LevelUpBaseThreshold
+        state.Level <- 1
+        state.OrbSpeedMultiplier <- 1.0
+        state.BloodAuraActive <- false
+        state.NextShardId <- 1
 
     let applyChoice (state: Phase4State) choice =
         match choice with

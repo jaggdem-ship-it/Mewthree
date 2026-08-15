@@ -69,8 +69,23 @@ module App =
           ContactDamage: float
           ContactRadius: float }
 
+    type ShadowBolt =
+        { Mesh: Mesh
+          Target: Phase4.EnemyVisualState
+          Damage: float
+          Speed: float }
+
+    type JoystickState =
+        { Base: HTMLElement
+          Knob: HTMLElement
+          mutable Active: bool
+          mutable PointerId: float
+          mutable X: float
+          mutable Y: float }
+
     type InputState =
-        { mutable Keys: Set<string> }
+        { mutable Keys: Set<string>
+          Joystick: JoystickState }
 
     let private clamp minimum maximum value =
         value |> max minimum |> min maximum
@@ -86,6 +101,78 @@ module App =
         match document.getElementById("game-view") with
         | null -> failwith "The required #game-view canvas was not found."
         | element -> element :?> HTMLCanvasElement
+
+    let private createJoystick () =
+        let baseElement = document.createElement("div")
+        let knobElement = document.createElement("div")
+        baseElement.id <- "mobile-joystick"
+        knobElement.id <- "mobile-joystick-knob"
+        baseElement.appendChild(knobElement) |> ignore
+        baseElement.setAttribute("style", "position:fixed;left:24px;bottom:32px;width:132px;height:132px;border:2px solid rgba(221,180,116,.72);border-radius:50%;background:radial-gradient(circle,rgba(104,28,48,.42),rgba(10,6,12,.72));box-shadow:0 0 28px rgba(91,17,41,.8),inset 0 0 20px rgba(0,0,0,.7);z-index:80;touch-action:none;pointer-events:auto;display:block;")
+        knobElement.setAttribute("style", "position:absolute;left:41px;top:41px;width:46px;height:46px;border:1px solid rgba(240,213,163,.9);border-radius:50%;background:radial-gradient(circle at 35% 30%,#d5a9b4,#64152f 60%,#1b0b12);box-shadow:0 3px 12px rgba(0,0,0,.75);pointer-events:none;transform:translate(0px,0px);")
+        document.body.appendChild(baseElement) |> ignore
+        { Base = baseElement
+          Knob = knobElement
+          Active = false
+          PointerId = -1
+          X = 0.0
+          Y = 0.0 }
+
+    let private resetJoystick (joystick: JoystickState) =
+        joystick.Active <- false
+        joystick.PointerId <- -1
+        joystick.X <- 0.0
+        joystick.Y <- 0.0
+        joystick.Knob.setAttribute("style", "position:absolute;left:41px;top:41px;width:46px;height:46px;border:1px solid rgba(240,213,163,.9);border-radius:50%;background:radial-gradient(circle at 35% 30%,#d5a9b4,#64152f 60%,#1b0b12);box-shadow:0 3px 12px rgba(0,0,0,.75);pointer-events:none;transform:translate(0px,0px);")
+
+    let private updateJoystick (joystick: JoystickState) (event: PointerEvent) =
+        let bounds = joystick.Base.getBoundingClientRect()
+        let centerX = bounds.left + bounds.width / 2.0
+        let centerY = bounds.top + bounds.height / 2.0
+        let maxRadius = bounds.width * 0.34
+        let rawX = event.clientX - centerX
+        let rawY = event.clientY - centerY
+        let magnitude = sqrt (rawX * rawX + rawY * rawY)
+        let scale = if magnitude > maxRadius then maxRadius / magnitude else 1.0
+        let clampedX = rawX * scale
+        let clampedY = rawY * scale
+        joystick.X <- clampedX / maxRadius
+        joystick.Y <- clampedY / maxRadius
+        joystick.Knob.setAttribute("style", sprintf "position:absolute;left:41px;top:41px;width:46px;height:46px;border:1px solid rgba(240,213,163,.9);border-radius:50%%;background:radial-gradient(circle at 35%% 30%%,#d5a9b4,#64152f 60%%,#1b0b12);box-shadow:0 3px 12px rgba(0,0,0,.75);pointer-events:none;transform:translate(%fpx,%fpx);" (clampedX * 0.62) (clampedY * 0.62))
+
+    [<Emit("$0.geometry.dispose(); $0.material.dispose(); $0.removeFromParent();")>]
+    let private disposeCombatMesh (mesh: Mesh) : unit = jsNative
+
+    let private createShadowBolt (scene: Scene) (player: PlayerData) (target: Phase4.EnemyVisualState) damage =
+        let geometry = SphereGeometry(0.16, 8, 6)
+        let material = createStandardMaterial (U2.Case1 UnholyCore) 0.22 0.65
+        let mesh = Mesh(geometry :> obj, material :> obj)
+        mesh.castShadow <- true
+        mesh.position.set(player.Position.x, player.Position.y + 0.5, player.Position.z) |> ignore
+        scene.add(mesh :> Object3D)
+        { Mesh = mesh
+          Target = target
+          Damage = damage
+          Speed = 18.0 }
+
+    let private updateShadowBolt (deltaSeconds: float) (bolt: ShadowBolt) =
+        if bolt.Target.Enemy.Health <= 0.0 then
+            false
+        else
+            let direction =
+                createVector3
+                    (bolt.Target.Enemy.Mesh.position.x - bolt.Mesh.position.x)
+                    0.0
+                    (bolt.Target.Enemy.Mesh.position.z - bolt.Mesh.position.z)
+            let distanceSquared = direction.x * direction.x + direction.z * direction.z
+            if distanceSquared <= 0.65 * 0.65 then
+                Phase4.hitEnemy bolt.Damage bolt.Target
+                false
+            else
+                direction.normalize() |> ignore
+                bolt.Mesh.position.x <- bolt.Mesh.position.x + direction.x * bolt.Speed * deltaSeconds
+                bolt.Mesh.position.z <- bolt.Mesh.position.z + direction.z * bolt.Speed * deltaSeconds
+                true
 
     let private createPlayerMesh () =
         let geometry = SphereGeometry(0.72, 16, 12)
@@ -136,7 +223,9 @@ module App =
         let up = input.Keys.Contains "w" || input.Keys.Contains "ArrowUp"
         let horizontal = (if right then 1.0 else 0.0) - (if left then 1.0 else 0.0)
         let vertical = (if down then 1.0 else 0.0) - (if up then 1.0 else 0.0)
-        let direction = createVector3 horizontal 0.0 vertical |> normalizeHorizontal
+        let combinedX = horizontal + input.Joystick.X
+        let combinedZ = vertical + input.Joystick.Y
+        let direction = createVector3 combinedX 0.0 combinedZ |> normalizeHorizontal
         let distance = player.MoveSpeed * deltaSeconds
         let nextX = player.Position.x + direction.x * distance
         let nextZ = player.Position.z + direction.z * distance
@@ -253,7 +342,8 @@ module App =
         scene.add(playerMesh :> Object3D)
 
         let hud = createHud ()
-        let input = { Keys = Set.empty<string> }
+        let joystick = createJoystick ()
+        let input = { Keys = Set.empty<string>; Joystick = joystick }
         let clock = Clock()
         let hordeState = HordeEngine.createState ()
         let phase4State = Phase4.createState player.MaxHP
@@ -261,6 +351,8 @@ module App =
         let loopControl : Phase4.GameLoopControl = { AnimationHandle = None; Paused = true }
         let mutable activeOrbs = Array.empty<UnholyOrb>
         let activeWeapons = ResizeArray<Phase4.WeaponCollider>()
+        let activeShadowBolts = ResizeArray<ShadowBolt>()
+        let mutable shadowBoltTimer = 0.0
         let enemyVisuals = Dictionary<int, Phase4.EnemyVisualState>()
         let mutable orbTimer = OrbSpawnInterval
         let mutable runScore = 0
@@ -303,6 +395,27 @@ module App =
         let activeEnemyVisuals () =
             HordeEngine.activeEnemies hordeState |> Array.map enemyVisualState
 
+        let fireNearestEnemy () =
+            let targets = activeEnemyVisuals () |> Array.filter (fun target -> target.Enemy.Health > 0.0)
+            if targets.Length > 0 && activeShadowBolts.Count < 8 then
+                let nearest =
+                    targets
+                    |> Array.minBy (fun target ->
+                        let dx = target.Enemy.Mesh.position.x - player.Position.x
+                        let dz = target.Enemy.Mesh.position.z - player.Position.z
+                        dx * dx + dz * dz)
+                activeShadowBolts.Add(createShadowBolt scene player nearest 28.0)
+
+        let updateShadowBolts deltaSeconds =
+            let mutable index = activeShadowBolts.Count - 1
+            while index >= 0 do
+                let bolt = activeShadowBolts[index]
+                if not (updateShadowBolt deltaSeconds bolt) then
+                    scene.remove(bolt.Mesh :> Object3D)
+                    disposeCombatMesh bolt.Mesh
+                    activeShadowBolts.RemoveAt(index)
+                index <- index - 1
+
         let pauseLoop () =
             loopControl.Paused <- true
             match loopControl.AnimationHandle with
@@ -317,17 +430,21 @@ module App =
                 loopControl.AnimationHandle <- Some (window.requestAnimationFrame(renderFrame))
 
         let resetRun () =
-            phase4State.PlayerHP <- player.MaxHP
-            phase4State.Experience <- 0
-            phase4State.ExperienceThreshold <- 8
-            phase4State.Level <- 1
-            phase4State.OrbSpeedMultiplier <- 1.0
-            phase4State.BloodAuraActive <- false
+            Phase4.resetState scene phase4State
+            HordeEngine.reset scene hordeState
+            activeShadowBolts
+            |> Seq.iter (fun bolt ->
+                scene.remove(bolt.Mesh :> Object3D)
+                disposeCombatMesh bolt.Mesh)
+            activeShadowBolts.Clear()
+            enemyVisuals.Clear()
+            resetJoystick joystick
             phase4State.Paused <- false
             loopControl.Paused <- false
             gameOverShown <- false
             runScore <- 0
             orbTimer <- OrbSpawnInterval
+            shadowBoltTimer <- 0.0
             player.CurrentHP <- player.MaxHP
             player.Position.set(0.0, 0.72, 0.0) |> ignore
             playerMesh.position.copy(player.Position) |> ignore
@@ -380,6 +497,12 @@ module App =
                 |> Array.iter (fun orb ->
                     updateUnholyOrb (Phase4.orbSpeedMultiplier phase4State) deltaSeconds elapsedSeconds player orb |> ignore)
 
+                shadowBoltTimer <- shadowBoltTimer - deltaSeconds
+                if shadowBoltTimer <= 0.0 then
+                    fireNearestEnemy ()
+                    shadowBoltTimer <- 0.72
+                updateShadowBolts deltaSeconds
+
                 let enemyCountBefore = hordeState.Enemies.Count
                 HordeEngine.tick deltaSeconds scene playerMesh hordeState
                 runScore <- runScore + max 0 ((enemyCountBefore - hordeState.Enemies.Count) * 10)
@@ -388,6 +511,14 @@ module App =
                 activeWeapons
                 |> Seq.iter (fun weapon -> weapon.Damage <- if Phase4.bloodAuraActive phase4State then OrbContactDamage * 1.5 else OrbContactDamage)
                 Phase4.tick deltaSeconds scene playerMesh 0.72 activeWeapons visuals phase4State loopControl levelUpCallbacks
+                let enemiesBeforeCleanup = hordeState.Enemies.Count
+                HordeEngine.cleanupDead scene hordeState
+                runScore <- runScore + max 0 ((enemiesBeforeCleanup - hordeState.Enemies.Count) * 10)
+                let liveEnemyIds = HordeEngine.activeEnemies hordeState |> Array.map (fun enemy -> enemy.Id) |> Set.ofArray
+                enemyVisuals.Keys
+                |> Seq.filter (fun enemyId -> not (liveEnemyIds.Contains enemyId))
+                |> Seq.toArray
+                |> Array.iter (fun enemyId -> enemyVisuals.Remove enemyId |> ignore)
                 player.CurrentHP <- phase4State.PlayerHP
                 player.Level <- phase4State.Level
                 updateHud player phase4State runScore
@@ -397,6 +528,22 @@ module App =
                 if not loopControl.Paused && not gameOverShown then
                     loopControl.AnimationHandle <- Some (window.requestAnimationFrame(renderFrame))
 
+        joystick.Base.addEventListener("pointerdown", fun event ->
+            let pointer = event :?> PointerEvent
+            joystick.Active <- true
+            joystick.PointerId <- pointer.pointerId
+            joystick.Base.setPointerCapture(pointer.pointerId)
+            updateJoystick joystick pointer)
+        joystick.Base.addEventListener("pointermove", fun event ->
+            let pointer = event :?> PointerEvent
+            if joystick.Active && pointer.pointerId = joystick.PointerId then
+                updateJoystick joystick pointer)
+        joystick.Base.addEventListener("pointerup", fun event ->
+            let pointer = event :?> PointerEvent
+            if pointer.pointerId = joystick.PointerId then resetJoystick joystick)
+        joystick.Base.addEventListener("pointercancel", fun event ->
+            let pointer = event :?> PointerEvent
+            if pointer.pointerId = joystick.PointerId then resetJoystick joystick)
         window.addEventListener("keydown", fun event -> keyDown (event :?> KeyboardEvent))
         window.addEventListener("keyup", fun event -> keyUp (event :?> KeyboardEvent))
         window.addEventListener("resize", fun _ -> resizeScene camera renderer ())

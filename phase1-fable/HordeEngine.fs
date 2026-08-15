@@ -7,7 +7,13 @@ module HordeEngine =
     open Three
 
     [<Literal>]
-    let private SpawnIntervalSeconds = 3.0
+    let private SpawnIntervalSeconds = 2.2
+
+    [<Literal>]
+    let private InitialSpawnDelaySeconds = 0.75
+
+    [<Literal>]
+    let private MaximumActiveEnemies = 110
 
     [<Literal>]
     let private MinimumClusterSize = 5
@@ -16,10 +22,10 @@ module HordeEngine =
     let private MaximumClusterSizeExclusive = 11
 
     [<Literal>]
-    let private MinimumSpawnRadius = 28.0
+    let private MinimumSpawnRadius = 18.0
 
     [<Literal>]
-    let private SpawnRadiusVariance = 10.0
+    let private SpawnRadiusVariance = 8.0
 
     [<Literal>]
     let private SkeletonWarriorHealth = 42.0
@@ -59,7 +65,7 @@ module HordeEngine =
     let createState () =
         { Enemies = ResizeArray<Enemy>()
           Random = Random()
-          SpawnTimer = SpawnIntervalSeconds
+          SpawnTimer = InitialSpawnDelaySeconds
           NextEnemyId = 1 }
 
     let private stats enemyType =
@@ -109,7 +115,8 @@ module HordeEngine =
         state.Enemies.Add enemy
 
     let private spawnCluster (scene: Scene) (state: HordeState) (playerMesh: Mesh) =
-        let clusterSize = state.Random.Next(MinimumClusterSize, MaximumClusterSizeExclusive)
+        let requestedSize = state.Random.Next(MinimumClusterSize, MaximumClusterSizeExclusive)
+        let clusterSize = min requestedSize (max 0 (MaximumActiveEnemies - state.Enemies.Count))
         let angleOffset = state.Random.NextDouble() * Math.PI * 2.0
         [ 0 .. clusterSize - 1 ]
         |> List.iter (fun index ->
@@ -124,7 +131,7 @@ module HordeEngine =
                 0.0
                 (playerMesh.position.z - enemy.Mesh.position.z)
         let distanceSquared = direction.x * direction.x + direction.z * direction.z
-        if distanceSquared > 0.0001 then
+        if enemy.Health > 0.0 && distanceSquared > 0.0001 then
             direction.normalize() |> ignore
             let travelDistance = enemy.Speed * deltaSeconds
             enemy.Mesh.position.x <- enemy.Mesh.position.x + direction.x * travelDistance
@@ -144,6 +151,21 @@ module HordeEngine =
     let damageEnemy amount (enemy: Enemy) =
         enemy.Health <- max 0.0 (enemy.Health - max 0.0 amount)
 
+    let cleanupDead (scene: Scene) (state: HordeState) =
+        cleanupDeadEnemies scene state
+
+    [<Emit("$0.geometry.dispose(); $0.material.dispose(); $0.removeFromParent();")>]
+    let private disposeResetMesh (mesh: Mesh) : unit = jsNative
+
+    let reset (scene: Scene) (state: HordeState) =
+        state.Enemies
+        |> Seq.iter (fun enemy ->
+            scene.remove(enemy.Mesh :> Object3D)
+            disposeResetMesh enemy.Mesh)
+        state.Enemies.Clear()
+        state.SpawnTimer <- InitialSpawnDelaySeconds
+        state.NextEnemyId <- 1
+
     let tick deltaSeconds (scene: Scene) (playerMesh: Mesh) (state: HordeState) =
         let safeDeltaSeconds = deltaSeconds |> max 0.0 |> min 0.1
         state.SpawnTimer <- state.SpawnTimer - safeDeltaSeconds
@@ -154,7 +176,7 @@ module HordeEngine =
         state.Enemies
         |> Seq.iter (pursuePlayer safeDeltaSeconds playerMesh)
 
-        cleanupDeadEnemies scene state
+        ()
 
     let activeEnemies (state: HordeState) =
         state.Enemies |> Seq.toArray
