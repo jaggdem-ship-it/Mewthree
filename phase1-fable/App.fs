@@ -204,8 +204,13 @@ module App =
             scene.add(orb.Mesh :> Object3D))
         phases |> Array.map createUnholyOrb
 
+    // Black-Iron Reliquary style: orbitals are persistent combat relics, and every retired
+    // relic must release both its scene attachment and GPU-backed geometry/material state.
     let private removeUnholyOrbs (scene: Scene) (orbs: UnholyOrb array) =
-        orbs |> Array.iter (fun orb -> scene.remove(orb.Mesh :> Object3D))
+        orbs
+        |> Array.iter (fun orb ->
+            scene.remove(orb.Mesh :> Object3D)
+            disposeCombatMesh orb.Mesh)
 
     let private updateUnholyOrb multiplier deltaSeconds elapsedSeconds (player: PlayerData) (orb: UnholyOrb) =
         let angle = elapsedSeconds * orb.AngularSpeed * multiplier + orb.OrbitPhase
@@ -437,6 +442,9 @@ module App =
                 scene.remove(bolt.Mesh :> Object3D)
                 disposeCombatMesh bolt.Mesh)
             activeShadowBolts.Clear()
+            removeUnholyOrbs scene activeOrbs
+            activeOrbs <- Array.empty
+            activeWeapons.Clear()
             enemyVisuals.Clear()
             resetJoystick joystick
             phase4State.Paused <- false
