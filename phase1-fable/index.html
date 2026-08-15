@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#000000" />
+  <title>The Ashen Vigil — Dark Fantasy Survivor</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      background: #000;
+    }
+
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      background: #000;
+    }
+
+    body {
+      position: fixed;
+      inset: 0;
+      overscroll-behavior: none;
+      touch-action: none;
+      font-family: Georgia, "Times New Roman", serif;
+    }
+
+    #game-view {
+      position: fixed;
+      inset: 0;
+      display: block;
+      width: 100vw;
+      height: 100vh;
+      width: 100dvw;
+      height: 100dvh;
+      outline: none;
+      background: #000;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="game-view" aria-label="The Ashen Vigil dark fantasy arena"></canvas>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js" crossorigin="anonymous"></script>
+  <script src="https://js.puter.com/v2/"></script>
+  <script type="module" src="./dist/App.js"></script>
+</body>
+</html>

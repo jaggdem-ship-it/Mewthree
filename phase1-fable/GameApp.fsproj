@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFrameworks>net8.0;net9.0</TargetFrameworks>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>DarkFantasySurvivor</RootNamespace>
+    <AssemblyName>DarkFantasySurvivor</AssemblyName>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <IsPackable>false</IsPackable>
+    <LangVersion>7</LangVersion>
+    <OtherFlags>--strict-indentation-</OtherFlags>
+    <Deterministic>true</Deterministic>
+    <Nullable>disable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Fable.Core" Version="5.2.0" />
+    <PackageReference Include="Fable.Browser.Dom" Version="2.1.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="Three.fs" />
+    <Compile Include="HordeEngine.fs" />
+    <Compile Include="Phase4.fs" />
+    <Compile Include="Puter.fs" />
+    <Compile Include="Phase5.fs" />
+    <Compile Include="App.fs" />
+  </ItemGroup>
+</Project>
