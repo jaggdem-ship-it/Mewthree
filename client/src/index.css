@@ -1,177 +1,56 @@
+/* Black-Iron Reliquary: tactile darkness, asymmetric HUD islands, parchment hierarchy, and restrained vermilion. */
+@import url('https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@600;700;900&family=Source+Sans+3:wght@400;600;700;800&display=swap');
 @import "tailwindcss";
 @import "tw-animate-css";
 
-@custom-variant dark (&:is(.dark *));
-
-@theme inline {
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-card: var(--card);
-  --color-card-foreground: var(--card-foreground);
-  --color-popover: var(--popover);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-primary: var(--primary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-secondary: var(--secondary);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-muted: var(--muted);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-accent: var(--accent);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-destructive: var(--destructive);
-  --color-destructive-foreground: var(--destructive-foreground);
-  --color-border: var(--border);
-  --color-input: var(--input);
-  --color-ring: var(--ring);
-  --color-chart-1: var(--chart-1);
-  --color-chart-2: var(--chart-2);
-  --color-chart-3: var(--chart-3);
-  --color-chart-4: var(--chart-4);
-  --color-chart-5: var(--chart-5);
-  --color-sidebar: var(--sidebar);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-ring: var(--sidebar-ring);
-}
-
-:root {
-  --primary: var(--color-blue-700);
-  --primary-foreground: var(--color-blue-50);
-  --sidebar-primary: var(--color-blue-600);
-  --sidebar-primary-foreground: var(--color-blue-50);
-  --chart-1: var(--color-blue-300);
-  --chart-2: var(--color-blue-500);
-  --chart-3: var(--color-blue-600);
-  --chart-4: var(--color-blue-700);
-  --chart-5: var(--color-blue-800);
-  --radius: 0.65rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.235 0.015 65);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.235 0.015 65);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.235 0.015 65);
-  --secondary: oklch(0.98 0.001 286.375);
-  --secondary-foreground: oklch(0.4 0.015 65);
-  --muted: oklch(0.967 0.001 286.375);
-  --muted-foreground: oklch(0.552 0.016 285.938);
-  --accent: oklch(0.967 0.001 286.375);
-  --accent-foreground: oklch(0.141 0.005 285.823);
-  --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(0.92 0.004 286.32);
-  --input: oklch(0.92 0.004 286.32);
-  --ring: oklch(0.623 0.214 259.815);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.235 0.015 65);
-  --sidebar-accent: oklch(0.967 0.001 286.375);
-  --sidebar-accent-foreground: oklch(0.141 0.005 285.823);
-  --sidebar-border: oklch(0.92 0.004 286.32);
-  --sidebar-ring: oklch(0.623 0.214 259.815);
-}
-
-.dark {
-  --primary: var(--color-blue-700);
-  --primary-foreground: var(--color-blue-50);
-  --sidebar-primary: var(--color-blue-500);
-  --sidebar-primary-foreground: var(--color-blue-50);
-  --background: oklch(0.141 0.005 285.823);
-  --foreground: oklch(0.85 0.005 65);
-  --card: oklch(0.21 0.006 285.885);
-  --card-foreground: oklch(0.85 0.005 65);
-  --popover: oklch(0.21 0.006 285.885);
-  --popover-foreground: oklch(0.85 0.005 65);
-  --secondary: oklch(0.24 0.006 286.033);
-  --secondary-foreground: oklch(0.7 0.005 65);
-  --muted: oklch(0.274 0.006 286.033);
-  --muted-foreground: oklch(0.705 0.015 286.067);
-  --accent: oklch(0.274 0.006 286.033);
-  --accent-foreground:  oklch(0.92 0.005 65);
-  --destructive: oklch(0.704 0.191 22.216);
-  --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.488 0.243 264.376);
-  --chart-1: var(--color-blue-300);
-  --chart-2: var(--color-blue-500);
-  --chart-3: var(--color-blue-600);
-  --chart-4: var(--color-blue-700);
-  --chart-5: var(--color-blue-800);
-  --sidebar: oklch(0.21 0.006 285.885);
-  --sidebar-foreground: oklch(0.85 0.005 65);
-  --sidebar-accent: oklch(0.274 0.006 286.033);
-  --sidebar-accent-foreground:  oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.488 0.243 264.376);
-}
-
-@layer base {
-  * {
-    @apply border-border outline-ring/50;
-  }
-  body {
-    @apply bg-background text-foreground;
-  }
-  button:not(:disabled),
-  [role="button"]:not([aria-disabled="true"]),
-  [type="button"]:not(:disabled),
-  [type="submit"]:not(:disabled),
-  [type="reset"]:not(:disabled),
-  a[href],
-  select:not(:disabled),
-  input[type="checkbox"]:not(:disabled),
-  input[type="radio"]:not(:disabled) {
-    @apply cursor-pointer;
-  }
-}
-
-@layer components {
-  /**
-   * Custom container utility that centers content and adds responsive padding.
-   *
-   * This overrides Tailwind's default container behavior to:
-   * - Auto-center content (mx-auto)
-   * - Add responsive horizontal padding
-   * - Set max-width for large screens
-   *
-   * Usage: <div className="container">...</div>
-   *
-   * For custom widths, use max-w-* utilities directly:
-   * <div className="max-w-6xl mx-auto px-4">...</div>
-   */
-  .container {
-    width: 100%;
-    margin-left: auto;
-    margin-right: auto;
-    padding-left: 1rem; /* 16px - mobile padding */
-    padding-right: 1rem;
-  }
-
-  .flex {
-    min-height: 0;
-    min-width: 0;
-  }
-
-  @media (min-width: 640px) {
-    .container {
-      padding-left: 1.5rem; /* 24px - tablet padding */
-      padding-right: 1.5rem;
-    }
-  }
-
-  @media (min-width: 1024px) {
-    .container {
-      padding-left: 2rem; /* 32px - desktop padding */
-      padding-right: 2rem;
-      max-width: 1280px; /* Standard content width */
-    }
-  }
-}
+:root { font-family: 'Source Sans 3', sans-serif; color: #e5d4b5; background: #09080a; font-synthesis: none; }
+* { box-sizing: border-box; }
+html, body, #root { width: 100%; height: 100%; margin: 0; overflow: hidden; background: #09080a; }
+button { font: inherit; }
+.game-shell { position: relative; width: 100vw; height: 100vh; overflow: hidden; background: #09080a; color: #e5d4b5; user-select: none; }
+.game-canvas { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; cursor: crosshair; }
+.vignette { position: absolute; inset: 0; pointer-events: none; background: radial-gradient(ellipse at center, transparent 32%, rgba(8,5,8,.16) 64%, rgba(5,3,5,.78) 100%), linear-gradient(180deg, rgba(8,5,8,.42), transparent 24%, transparent 78%, rgba(8,5,8,.62)); mix-blend-mode: multiply; }
+.hud { position: absolute; z-index: 2; pointer-events: none; text-shadow: 0 2px 5px #09080a; }
+.hud-top-left { top: 24px; left: 27px; width: min(360px, 48vw); }
+.sigil-frame { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; letter-spacing: .16em; font-family: 'Cinzel Decorative', serif; font-size: 12px; line-height: 1.5; color: #e5d4b5; }
+.brand-mark { position: relative; display: grid; place-items: center; width: 52px; height: 52px; border: 2px solid #c38a4f; border-radius: 50%; box-shadow: inset 0 0 0 4px #0b090b, inset 0 0 0 6px rgba(195,138,79,.45), 0 0 15px rgba(182,66,63,.22); transform: rotate(-14deg); } .brand-mark::before, .brand-mark::after { content: ''; position: absolute; width: 9px; height: 16px; background: #09080a; } .brand-mark::before { top: -5px; right: 3px; transform: rotate(22deg); } .brand-mark::after { bottom: -4px; left: 7px; transform: rotate(-18deg); } .brand-mark i { display: block; width: 4px; height: 28px; background: #b6423f; box-shadow: 0 0 9px rgba(182,66,63,.65); transform: rotate(14deg); } .wordmark { font-family: 'Cinzel Decorative', serif; font-size: 13px; letter-spacing: .12em; }
+.sigil-frame em { font-family: 'Source Sans 3', sans-serif; font-size: 10px; font-style: normal; letter-spacing: .3em; color: #b6423f; }
+.meter-block { margin-top: 10px; }
+.meter-label { display: flex; justify-content: space-between; font-size: 10px; letter-spacing: .16em; color: #c8b99f; }
+.meter-label b { color: #f3e8d2; font-variant-numeric: tabular-nums; }
+.meter-block { position: relative; padding: 7px 9px 9px; background: linear-gradient(90deg, rgba(18,13,15,.78), rgba(18,13,15,.35)); border-left: 2px solid rgba(195,138,79,.32); } .meter-block::before, .meter-block::after { content: '·'; position: absolute; top: 1px; color: #c38a4f; font-size: 10px; } .meter-block::before { left: 4px; } .meter-block::after { right: 4px; } .meter { height: 7px; margin-top: 7px; padding: 1px; background: rgba(9,8,10,.82); border: 1px solid rgba(195,138,79,.4); clip-path: polygon(0 0, 99% 0, 100% 50%, 99% 100%, 0 100%, 1% 50%); }
+.meter i { display: block; height: 100%; transition: width .2s ease-out; }
+.meter-health i { background: linear-gradient(90deg, #6d2528, #b6423f); }
+.meter-xp { height: 4px; opacity: .9; border-color: rgba(195,138,79,.25); }
+.meter-xp i { background: #c38a4f; }
+.hud-top-right { top: 26px; right: 30px; display: flex; gap: 26px; text-align: right; }
+.run-stat span { display: block; color: #ae9678; font-size: 9px; letter-spacing: .22em; }
+.run-stat strong { display: block; margin-top: 2px; font-family: 'Cinzel Decorative', serif; font-size: 18px; font-weight: 700; color: #f0ddbc; font-variant-numeric: tabular-nums; }
+.hud-bottom { position: absolute; z-index: 2; left: 28px; right: 28px; bottom: 24px; display: flex; align-items: flex-end; gap: 20px; pointer-events: none; }
+.relic-caption { min-width: 150px; color: #a78d6f; font-size: 10px; letter-spacing: .16em; line-height: 1.45; }
+.relic-caption b { color: #e5d4b5; font-size: 12px; }
+.relic-slots { display: flex; gap: 8px; }
+.relic-slot { position: relative; display: flex; align-items: center; justify-content: center; flex-direction: column; width: 74px; height: 70px; border: 1px solid rgba(195,138,79,.28); background: linear-gradient(145deg, rgba(29,22,25,.86), rgba(9,8,10,.72)); color: #625955; box-shadow: inset 0 0 0 1px rgba(229,212,181,.035); font-size: 27px; clip-path: polygon(8% 0, 92% 0, 100% 12%, 100% 88%, 92% 100%, 8% 100%, 0 88%, 0 12%); }
+.relic-slot.active { color: #b6423f; border-color: rgba(195,138,79,.78); box-shadow: inset 0 0 18px rgba(182,66,63,.14); }
+.relic-slot small { margin-top: 4px; color: #a78d6f; font-size: 7px; letter-spacing: .08em; }
+.seal-button { margin-left: auto; pointer-events: auto; padding: 9px 15px; border: 1px solid rgba(195,138,79,.48); background: rgba(9,8,10,.7); color: #e5d4b5; font-size: 9px; letter-spacing: .22em; cursor: pointer; transition: transform .16s ease-out, background .16s ease-out, border-color .16s ease-out; }
+.seal-button:hover { border-color: #c38a4f; background: rgba(87,38,34,.72); transform: translateY(-2px); }
+.control-hint { position: absolute; z-index: 2; left: 50%; bottom: 25px; transform: translateX(-50%); color: rgba(229,212,181,.62); font-size: 10px; letter-spacing: .1em; white-space: nowrap; }
+.control-hint i { display: inline-block; width: 4px; height: 4px; margin: 0 10px 2px; border-radius: 50%; background: #b6423f; }
+.keycap { padding: 2px 5px; border: 1px solid rgba(229,212,181,.25); color: #e5d4b5; font-weight: 700; }
+.ritual-overlay { position: absolute; z-index: 4; inset: 0; display: grid; place-items: center; background: rgba(5,3,5,.68); backdrop-filter: blur(7px); animation: reveal .22s cubic-bezier(.23,1,.32,1); }
+.ritual-panel { width: min(790px, calc(100vw - 36px)); position: relative; overflow: hidden; padding: 42px 44px 46px; border: 1px solid rgba(195,138,79,.55); background: linear-gradient(135deg, rgba(29,22,25,.96), rgba(14,11,14,.96)); box-shadow: 0 24px 60px rgba(0,0,0,.5), inset 0 0 0 1px rgba(229,212,181,.05); text-align: center; background-image: repeating-linear-gradient(0deg, transparent 0, transparent 7px, rgba(229,212,181,.018) 8px), radial-gradient(circle at 10% 18%, rgba(195,138,79,.08) 0 1px, transparent 2px); clip-path: polygon(2% 0, 98% 0, 100% 3%, 100% 97%, 98% 100%, 2% 100%, 0 97%, 0 3%); }
+.eyebrow { color: #b6423f; font-size: 10px; letter-spacing: .32em; font-weight: 800; }
+.ritual-panel h1 { margin: 10px 0 5px; font-family: 'Cinzel Decorative', serif; font-size: clamp(21px, 4vw, 38px); letter-spacing: .08em; color: #f0ddbc; }
+.ritual-panel p { margin: 0 0 28px; color: #af9d83; font-size: 15px; }
+.card-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; text-align: left; }
+.upgrade-card { min-height: 214px; padding: 20px 18px; border: 1px solid rgba(195,138,79,.4); background: rgba(9,8,10,.52); color: #e5d4b5; text-align: left; cursor: pointer; transition: transform .18s ease-out, border-color .18s ease-out, background .18s ease-out; }
+.upgrade-card:hover, .upgrade-card:focus-visible { border-color: #c38a4f; background: rgba(77,35,33,.56); transform: translateY(-5px); outline: none; }
+.card-glyph { display: block; margin-bottom: 16px; color: #b6423f; font-size: 28px; }
+.upgrade-card strong { display: block; font-family: 'Cinzel Decorative', serif; font-size: 14px; }
+.upgrade-card small { display: block; min-height: 54px; margin-top: 10px; color: #b4a187; font-size: 13px; line-height: 1.4; }
+.upgrade-card em { display: block; margin-top: 15px; color: #c38a4f; font-size: 9px; font-style: normal; letter-spacing: .16em; }
+.ritual-action { padding: 12px 18px; border: 1px solid #b6423f; background: #5d2328; color: #f0ddbc; letter-spacing: .18em; cursor: pointer; }
+@keyframes reveal { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+@media (max-width: 700px) { .hud-top-left { top: 14px; left: 14px; width: 61vw; } .hud-top-right { top: 16px; right: 14px; gap: 10px; } .run-stat strong { font-size: 14px; } .sigil-frame { margin-bottom: 10px; } .sigil-frame img { width: 34px; height: 34px; } .hud-bottom { left: 14px; right: 14px; bottom: 15px; gap: 8px; } .relic-caption { display: none; } .relic-slot { width: 56px; height: 56px; font-size: 20px; } .relic-slot small { font-size: 6px; } .control-hint { bottom: 83px; font-size: 8px; } .card-row { grid-template-columns: 1fr; gap: 7px; } .upgrade-card { min-height: 0; padding: 12px 14px; display: grid; grid-template-columns: 34px 1fr auto; align-items: center; column-gap: 8px; } .card-glyph { grid-row: span 2; margin: 0; } .upgrade-card small { min-height: 0; margin: 2px 0 0; grid-column: 2 / 3; } .upgrade-card em { margin: 0; grid-column: 3; grid-row: 1 / span 2; } .ritual-panel { padding: 30px 18px; } }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .001ms !important; transition-duration: .001ms !important; } }
