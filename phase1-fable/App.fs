@@ -251,7 +251,7 @@ module App =
         camera.aspect <- nextAspect
         camera.updateProjectionMatrix()
         renderer.setSize(nextWidth, nextHeight, true)
-        renderer.setPixelRatio(min 2.0 window.devicePixelRatio)
+        renderer.setPixelRatio(1.0)
 
     let private createHud () =
         let hud = document.createElement("section")
@@ -303,9 +303,9 @@ module App =
         camera.lookAt(createVector3 0.0 0.0 0.0)
 
         let renderer = createRenderer (box view)
-        renderer.setPixelRatio(min 2.0 window.devicePixelRatio)
+        renderer.setPixelRatio(1.0)
         renderer.setSize(width, height, true)
-        renderer.shadowMap.enabled <- true
+        renderer.shadowMap.enabled <- false
         renderer.shadowMap.``type`` <- 2
 
         let ambient = AmbientLight(U2.Case1 DarkCrimson, 0.32)
@@ -313,7 +313,7 @@ module App =
 
         let moon = DirectionalLight(U2.Case1 Moonlight, 2.4)
         moon.position.set(-14.0, 26.0, 10.0) |> ignore
-        moon.castShadow <- true
+        moon.castShadow <- false
         moon.shadow.mapSize.width <- 2048.0
         moon.shadow.mapSize.height <- 2048.0
         moon.shadow.camera.left <- -80.0
@@ -518,7 +518,12 @@ module App =
                 enemyVisuals.Keys
                 |> Seq.filter (fun enemyId -> not (liveEnemyIds.Contains enemyId))
                 |> Seq.toArray
-                |> Array.iter (fun enemyId -> enemyVisuals.Remove enemyId |> ignore)
+                |> Array.iter (fun enemyId ->
+                    match enemyVisuals.TryGetValue enemyId with
+                    | true, visual ->
+                        Phase4.disposeEnemyVisualState visual
+                        enemyVisuals.Remove enemyId |> ignore
+                    | false, _ -> ())
                 player.CurrentHP <- phase4State.PlayerHP
                 player.Level <- phase4State.Level
                 updateHud player phase4State runScore

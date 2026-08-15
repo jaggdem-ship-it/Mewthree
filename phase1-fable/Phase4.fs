@@ -93,6 +93,12 @@ module Phase4 =
           NextShardId = 1
           Overlay = None }
 
+    [<Emit("$0.material.dispose();")>]
+    let private disposeCurrentMeshMaterial (mesh: Mesh) : unit = jsNative
+
+    [<Emit("$0.dispose();")>]
+    let private disposeMaterial (material: obj) : unit = jsNative
+
     let private setMeshMaterial (mesh: Mesh) (material: obj) : unit =
         mesh.SetMaterial material
 
@@ -107,6 +113,8 @@ module Phase4 =
         | BloodFiend -> 14.0
 
     let createEnemyVisualState (enemy: Enemy) (baseMaterial: obj) (flashMaterial: obj) =
+        disposeCurrentMeshMaterial enemy.Mesh
+        setMeshMaterial enemy.Mesh baseMaterial
         { Enemy = enemy
           Radius = enemyRadius enemy.EnemyType
           ContactDamage = enemyContactDamage enemy.EnemyType
@@ -115,6 +123,12 @@ module Phase4 =
           HitFlashSeconds = 0.0
           ContactCooldown = 0.0
           DropSpawned = false }
+
+    let disposeEnemyVisualState (enemy: EnemyVisualState) : unit =
+        if enemy.HitFlashSeconds > 0.0 then
+            disposeMaterial enemy.BaseMaterial
+        else
+            disposeMaterial enemy.FlashMaterial
 
     let createWeaponCollider mesh damage radius =
         { Mesh = mesh
