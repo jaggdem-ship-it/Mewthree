@@ -43,7 +43,8 @@ module Phase4 =
           BaseMaterial: obj
           FlashMaterial: obj
           mutable HitFlashSeconds: float
-          mutable ContactCooldown: float }
+          mutable ContactCooldown: float
+          mutable DropSpawned: bool }
 
     type SoulShard =
         { Id: int
@@ -112,7 +113,8 @@ module Phase4 =
           BaseMaterial = baseMaterial
           FlashMaterial = flashMaterial
           HitFlashSeconds = 0.0
-          ContactCooldown = 0.0 }
+          ContactCooldown = 0.0
+          DropSpawned = false }
 
     let createWeaponCollider mesh damage radius =
         { Mesh = mesh
@@ -188,9 +190,9 @@ module Phase4 =
     let private spawnDropsForDefeatedEnemies (scene: Scene) (state: Phase4State) (enemies: seq<EnemyVisualState>) =
         enemies
         |> Seq.iter (fun enemy ->
-            if enemy.Enemy.Health <= 0.0 && enemy.HitFlashSeconds >= 0.0 then
+            if enemy.Enemy.Health <= 0.0 && not enemy.DropSpawned then
                 spawnSoulShard scene state enemy
-                enemy.HitFlashSeconds <- -1.0)
+                enemy.DropSpawned <- true)
 
     let private magnetizeSoulShard (deltaSeconds: float) (playerMesh: Mesh) (shard: SoulShard) =
         let distanceSquared = distanceSquaredOnPlane shard.Mesh.position playerMesh.position
